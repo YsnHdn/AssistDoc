@@ -1,0 +1,32 @@
+# Retrieval-Augmented Generation (RAG)
+
+## Définition
+Le RAG (Retrieval-Augmented Generation) est une technique qui combine la récupération d'informations pertinentes avec la génération de texte par les grands modèles de langage.
+
+## Comment fonctionne le RAG
+Le RAG fonctionne en suivant ces étapes:
+
+1. **Indexation**: Les documents sont découpés en chunks (segments) plus petits et convertis en embeddings vectoriels qui capturent leur signification sémantique.
+
+2. **Stockage**: Ces embeddings sont stockés dans une base de données vectorielle avec des références aux textes sources.
+
+3. **Récupération**: Lorsqu'une requête est reçue, elle est également convertie en embedding vectoriel, puis utilisée pour rechercher les chunks les plus similaires dans la base de données.
+
+4. **Génération**: Les chunks récupérés sont fournis comme contexte au LLM, qui les utilise pour générer une réponse pertinente et factuelle.
+
+5. **Réponse**: Le modèle produit une réponse basée uniquement sur le contexte fourni et ses connaissances propres.
+
+## Avantages du RAG
+Les principaux avantages du RAG incluent:
+1. Des réponses plus factuelles et précises
+2. La capacité à utiliser des informations qui ne font pas partie des données d'entraînement du LLM
+3. Une meilleure traçabilité des sources d'information
+4. Une réduction des hallucinations
+5. La possibilité d'intégrer des connaissances récentes ou spécifiques à un domaine
+
+## Applications
+Le RAG est particulièrement utile pour:
+- Les assistants documentaires
+- Les systèmes de questions-réponses
+- Les chatbots d'entreprise avec accès aux connaissances internes
+- Les applications nécessitant des réponses basées sur des connaissances spécifiques ou techniques
