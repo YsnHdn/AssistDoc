@@ -5,12 +5,17 @@ Permet de poser des questions sur les documents et affiche les réponses avec so
 
 import streamlit as st
 import time
+import os
 from pathlib import Path
 
 # Import des modules de l'application
 from ui.components.visualization import display_chat_message, display_model_info
 from src.vector_db.retriever import create_default_retriever
 from src.llm.models import LLMConfig, LLMProvider, create_llm
+
+def detect_streamlit_cloud():
+    """Détecte si l'application s'exécute sur Streamlit Cloud"""
+    return os.path.exists("/mount/src")
 
 def show_qa_page():
     """
@@ -154,12 +159,13 @@ def process_question(question, doc_id, doc_index):
         # Créer le LLM
         llm = create_llm(config)
         
-        # Créer le retriever
+        # Créer le retriever - Toujours utiliser FAISS sur Streamlit Cloud
         vector_store_path = "data/vector_store"
+        store_type = "faiss"  # Toujours utiliser FAISS pour garantir la compatibilité
         retriever = create_default_retriever(
             store_path=vector_store_path,
             embedder_model="all-MiniLM-L6-v2",
-            store_type="faiss",
+            store_type=store_type,
             top_k=5
         )
         
@@ -181,7 +187,7 @@ def process_question(question, doc_id, doc_index):
             # Filtrer pour ce document spécifique
             doc_chunks = [chunk for chunk in doc_chunks if chunk.get("file_name") == doc_id]
             
-            # Si toujours pas de chunks, essayer de récupérer le texte brut du document
+            # Si toujours pas de chunks, essayer d'accéder au texte brut du document
             if not doc_chunks and doc_index is not None:
                 # Récupérer le document complet
                 doc = st.session_state.documents[doc_index]

@@ -18,12 +18,16 @@ try:
 except ImportError:
     FAISS_AVAILABLE = False
 
+# À la place de l'import actuel de ChromaDB
 try:
     import chromadb
     from chromadb.config import Settings
     CHROMA_AVAILABLE = True
-except ImportError:
+except (ImportError, RuntimeError) as e:
+    # Capture à la fois les ImportError et RuntimeError (SQLite)
     CHROMA_AVAILABLE = False
+    import logging
+    logging.warning(f"ChromaDB n'est pas disponible: {str(e)}")
 
 # Configuration du logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -583,7 +587,8 @@ def create_vector_store(
     Returns:
         Instance de VectorStore
     """
-    if store_type.lower() == "faiss":
+    # Si ChromaDB n'est pas disponible ou explicitement demandé FAISS
+    if not CHROMA_AVAILABLE or store_type.lower() == "faiss":
         return FAISSVectorStore(dimension, store_path, **kwargs)
     elif store_type.lower() == "chroma":
         return ChromaVectorStore(dimension, store_path, **kwargs)

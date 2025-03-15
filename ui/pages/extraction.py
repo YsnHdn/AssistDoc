@@ -6,14 +6,19 @@ Permet d'extraire des informations structurées des documents.
 import streamlit as st
 import time
 import json
+import os
+import re
 from pathlib import Path
 import io
-import re
 
 # Import des modules de l'application
 from ui.components.visualization import display_extraction_results, display_model_info
 from src.vector_db.retriever import create_default_retriever
 from src.llm.models import LLMConfig, LLMProvider, create_llm
+
+def detect_streamlit_cloud():
+    """Détecte si l'application s'exécute sur Streamlit Cloud"""
+    return os.path.exists("/mount/src")
 
 def show_extraction_page():
     """
@@ -201,12 +206,13 @@ def extract_information(items_to_extract, output_format, doc_indices):
         # Créer le LLM
         llm = create_llm(config)
         
-        # Créer le retriever
+        # Créer le retriever - Toujours utiliser FAISS sur Streamlit Cloud
         vector_store_path = "data/vector_store"
+        store_type = "faiss"  # Utiliser FAISS pour assurer la compatibilité
         retriever = create_default_retriever(
             store_path=vector_store_path,
             embedder_model="all-MiniLM-L6-v2",
-            store_type="faiss",
+            store_type=store_type,
             top_k=8
         )
         
@@ -224,7 +230,7 @@ def extract_information(items_to_extract, output_format, doc_indices):
                 top_k=20
             )
             
-            # Filtrer pour ce document
+            # Filtrer pour ce document spécifique
             doc_chunks = [chunk for chunk in chunks if chunk.get("file_name") == doc_name]
             
             # Si aucun chunk trouvé, essayer d'accéder au texte brut du document
@@ -322,9 +328,6 @@ Je convertis ta réponse en format tabulaire, donc la structure doit être nette
         elif output_format == "Tableau":
             try:
                 # D'abord essayer de voir si le texte contient du JSON
-                import re
-                import pandas as pd
-                import io
                 json_match = re.search(r'({[\s\S]*})', content)
                 if json_match:
                     try:
