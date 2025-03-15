@@ -5,15 +5,31 @@ Ce fichier initialise l'application Streamlit et gère la navigation entre les p
 
 import streamlit as st
 import os
+import nltk
 from pathlib import Path
 
-# Import des modules de l'application
-from ui.pages.home import show_home_page
-from ui.pages.qa import show_qa_page
-from ui.pages.summary import show_summary_page
-from ui.pages.extraction import show_extraction_page
-from ui.components.sidebar import create_sidebar
-from ui.components.document_uploader import load_documents_registry  # Importer la fonction de chargement du registre
+# Télécharger les ressources NLTK au démarrage
+def download_nltk_resources():
+    """
+    Télécharge les ressources NLTK nécessaires pour l'application.
+    """
+    try:
+        # Vérifier si punkt est déjà téléchargé
+        nltk.data.find('tokenizers/punkt')
+        st.sidebar.success("✅ Ressources NLTK disponibles")
+    except LookupError:
+        # Télécharger punkt qui est utilisé pour la tokenization des phrases
+        st.sidebar.info("⏳ Téléchargement des ressources NLTK...")
+        
+        # Essayer de définir le répertoire de téléchargement pour Streamlit Cloud
+        try:
+            os.makedirs('/home/appuser/nltk_data', exist_ok=True)
+            nltk.download('punkt', download_dir='/home/appuser/nltk_data')
+        except:
+            # Fallback au répertoire par défaut
+            nltk.download('punkt')
+            
+        st.sidebar.success("✅ Ressources NLTK téléchargées avec succès")
 
 # Configuration de la page Streamlit
 st.set_page_config(
@@ -22,6 +38,17 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Télécharger les ressources NLTK avant d'importer les modules qui en dépendent
+download_nltk_resources()
+
+# Import des modules de l'application
+from ui.pages.home import show_home_page
+from ui.pages.qa import show_qa_page
+from ui.pages.summary import show_summary_page
+from ui.pages.extraction import show_extraction_page
+from ui.components.sidebar import create_sidebar
+from ui.components.document_uploader import load_documents_registry  # Importer la fonction de chargement du registre
 
 # Initialisation des variables de session si elles n'existent pas déjà
 if "current_page" not in st.session_state:
