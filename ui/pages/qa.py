@@ -133,14 +133,24 @@ def process_question(question, doc_id, doc_index):
         
         # Importer les clés API depuis le fichier de configuration
         try:
-            from config import API_KEYS, API_BASE_URLS
-            api_key = API_KEYS.get(provider)
-            api_base = API_BASE_URLS.get(provider)
-        except ImportError:
-            # Utiliser des valeurs par défaut si le fichier n'existe pas
+        # Vérifier si nous sommes sur Streamlit Cloud (les secrets sont accessibles)
+            if "secrets" in st.secrets:
+                api_key = st.secrets["api_keys"][provider]
+                api_base = st.secrets.get("api_base_urls", {}).get(provider)
+        
+                # Si pas de token dans les secrets pour ce provider, afficher un avertissement
+                if not api_key:
+                    st.warning(f"Aucun token {provider} configuré dans les secrets Streamlit.")
+                else:
+                    # Si pas de secrets, essayer d'utiliser config.py local
+                    from config import API_KEYS, API_BASE_URLS
+                    api_key = API_KEYS.get(provider)
+                    api_base = API_BASE_URLS.get(provider)
+        except Exception as e:
+            # En dernier recours, utiliser des valeurs par défaut
             api_key = None
             api_base = "https://models.inference.ai.azure.com" if provider == "github_inference" else None
-            st.warning("Fichier config.py non trouvé. Les API nécessitant une authentification pourraient ne pas fonctionner.")
+            st.warning("Aucune configuration trouvée. L'API pourrait ne pas fonctionner sans authentification.")
         
         # Créer la configuration LLM
         config = LLMConfig(

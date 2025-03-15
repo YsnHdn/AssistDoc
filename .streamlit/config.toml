@@ -7,3 +7,10 @@ gatherUsageStats = false
 
 [theme]
 primaryColor = "#4B9AFA"
+
+[api_keys]
+github_inference = "    "
+huggingface = "votre_token_huggingface"
+
+[api_base_urls]
+github_inference = "https://models.inference.ai.azure.com"
