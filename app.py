@@ -39,8 +39,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
+
 # Télécharger les ressources NLTK avant d'importer les modules qui en dépendent
 download_nltk_resources()
+
+# Assurer que NLTK a les ressources nécessaires
+from nltk_fix import ensure_punkt_resources
+ensure_punkt_resources()
 
 # Import des modules de l'application
 from ui.pages.home import show_home_page
