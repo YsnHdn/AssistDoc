@@ -1,6 +1,7 @@
 # Fichiers de configuration contenant des informations sensibles
 config.py
 test/llms/test_github_openai.py
+.devcontainer/
 # Fichiers de cache Python
 __pycache__/
 *.py[cod]
