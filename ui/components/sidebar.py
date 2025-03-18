@@ -94,24 +94,42 @@ def create_sidebar(change_page_callback):
         
         # Afficher le statut de connexion
         try:
-            # Vérifier si le token est disponible
-            try:
-                from config import API_KEYS
-                
-                if selected_provider == "github_inference" and API_KEYS.get("github_inference"):
-                    st.success("Connecté à GitHub Inference API")
-                elif selected_provider == "huggingface" and API_KEYS.get("huggingface"):
-                    st.success("Connecté à Hugging Face")
+            # Vérifier si les secrets sont disponibles sur Streamlit Cloud
+            if hasattr(st, "secrets") and "api_keys" in st.secrets:
+                provider_key = st.secrets["api_keys"].get(selected_provider)
+                if provider_key:
+                    st.success(f"Connecté à {provider_options[selected_provider]} via secrets Streamlit")
                 else:
-                    st.warning(f"Token {selected_provider} non configuré ou vide")
-                    st.info("Créez un fichier config.py avec vos clés API ou utilisez un modèle local")
-            except ImportError:
-                st.warning("Fichier config.py non trouvé")
-                st.info("Créez un fichier config.py avec vos clés API ou utilisez un modèle local Hugging Face")
+                    if selected_provider == "huggingface":
+                        st.info("Vous pouvez utiliser un modèle local Hugging Face sans clé API")
+                    else:
+                        st.warning(f"Token {selected_provider} non configuré dans les secrets Streamlit")
+            else:
+                # Si pas de secrets, essayer d'utiliser config.py local
+                try:
+                    from config import API_KEYS
+                    
+                    if selected_provider == "github_inference" and API_KEYS.get("github_inference"):
+                        st.success("Connecté à GitHub Inference API via config.py")
+                    elif selected_provider == "huggingface" and API_KEYS.get("huggingface"):
+                        st.success("Connecté à Hugging Face via config.py")
+                    else:
+                        if selected_provider == "huggingface":
+                            st.info("Vous pouvez utiliser un modèle local Hugging Face sans clé API")
+                        else:
+                            st.warning(f"Token {selected_provider} non configuré ou vide dans config.py")
+                except ImportError:
+                    if selected_provider == "huggingface":
+                        st.info("Vous pouvez utiliser un modèle local Hugging Face sans clé API")
+                    else:
+                        st.warning("Fichier config.py non trouvé")
+                        st.info("Créez un fichier config.py avec vos clés API ou utilisez un modèle local Hugging Face")
                 
-                # Créer un exemple de fichier config.py
-                with st.expander("Exemple de config.py"):
-                    st.code('''
+                # Afficher l'exemple de config.py uniquement si aucun secret n'est disponible
+                if not (hasattr(st, "secrets") and "api_keys" in st.secrets):
+                    # Créer un exemple de fichier config.py
+                    with st.expander("Exemple de config.py"):
+                        st.code('''
 """
 Configuration de l'application AssistDoc.
 Ce fichier contient les clés d'API et autres configurations sensibles.
