@@ -1,5 +1,6 @@
 """
 Utilitaires pour la gestion des sessions utilisateur.
+Fournit des fonctions communes pour l'isolation des données par utilisateur.
 """
 
 import streamlit as st
@@ -50,3 +51,15 @@ def ensure_user_directories(user_id):
     user_dir.mkdir(exist_ok=True)
     (user_dir / "uploaded_files").mkdir(exist_ok=True)
     (user_dir / "vector_store").mkdir(exist_ok=True)
+
+def get_user_registry_path(user_id):
+    """
+    Obtient le chemin du fichier de registre pour un utilisateur spécifique.
+    
+    Args:
+        user_id: Identifiant unique de l'utilisateur
+        
+    Returns:
+        Chemin vers le fichier de registre des documents de l'utilisateur
+    """
+    return get_user_data_path(user_id) / "documents_registry.json"

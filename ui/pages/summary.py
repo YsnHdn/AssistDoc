@@ -1,6 +1,7 @@
 """
 Page de résumé de l'application AssistDoc.
 Permet de générer des résumés des documents avec différentes options.
+Mise à jour pour supporter l'isolation des données par utilisateur.
 """
 
 import streamlit as st
@@ -11,9 +12,9 @@ import io
 
 # Import des modules de l'application
 from ui.components.visualization import display_summary, display_model_info
-from src.vector_db.retriever import create_default_retriever
+from src.vector_db.retriever import create_user_aware_retriever
 from src.llm.models import LLMConfig, LLMProvider, create_llm
-from utils.session_utils import get_user_id, get_user_data_path, ensure_user_directories
+from utils.session_utils import get_user_id, get_user_data_path
 
 def detect_streamlit_cloud():
     """Détecte si l'application s'exécute sur Streamlit Cloud"""
@@ -21,12 +22,15 @@ def detect_streamlit_cloud():
 
 def show_summary_page():
     """
-    Affiche la page de génération de résumé.
+    Affiche la page de génération de résumé avec isolation par utilisateur.
     """
     # Titre de la page
     st.markdown("<h1 class='main-title'>Résumé de Documents 📝</h1>", unsafe_allow_html=True)
     
-    # Vérifier si des documents sont chargés
+    # Obtenir l'ID utilisateur
+    user_id = get_user_id()
+    
+    # Vérifier si des documents sont chargés pour cet utilisateur
     if not st.session_state.get("documents", []) or not st.session_state.get("vector_store_initialized", False):
         st.warning("Aucun document chargé. Veuillez d'abord charger et indexer des documents dans la barre latérale.")
         return
@@ -131,7 +135,8 @@ def show_summary_page():
             summary_text, metadata = generate_summary(
                 summary_length_value,
                 summary_style,
-                selected_doc_indices
+                selected_doc_indices,
+                user_id
             )
         
         # Afficher le résumé
@@ -284,8 +289,7 @@ Crée un résumé {style_description} de {length}. Le résumé doit être clair,
         error_text = f"Erreur lors de la génération du résumé: {str(e)}\n\n{traceback.format_exc()}"
         st.error(error_text)
         return f"Erreur: {str(e)}", {}
-    
-    
+
 def offer_download(summary_text, metadata):
     """
     Offre des options pour télécharger le résumé.
@@ -326,4 +330,3 @@ def offer_download(summary_text, metadata):
         file_name="resume_assistdoc.md",
         mime="text/markdown",
     )
-    

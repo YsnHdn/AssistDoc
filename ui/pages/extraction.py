@@ -16,7 +16,8 @@ import io
 from ui.components.visualization import display_extraction_results, display_model_info
 from src.vector_db.retriever import create_user_aware_retriever
 from src.llm.models import LLMConfig, LLMProvider, create_llm
-from utils.session_utils import get_user_id, get_user_data_path, ensure_user_directories
+from utils.session_utils import get_user_id, get_user_data_path
+
 def detect_streamlit_cloud():
     """Détecte si l'application s'exécute sur Streamlit Cloud"""
     return os.path.exists("/mount/src")
@@ -25,11 +26,11 @@ def show_extraction_page():
     """
     Affiche la page d'extraction d'informations avec isolation par utilisateur.
     """
-    # Obtenir l'ID utilisateur
-    user_id = get_user_id()
-    
     # Titre de la page
     st.markdown("<h1 class='main-title'>Extraction d'Informations 🔍</h1>", unsafe_allow_html=True)
+    
+    # Obtenir l'ID utilisateur
+    user_id = get_user_id()
     
     # Vérifier si des documents sont chargés pour cet utilisateur
     if not st.session_state.get("documents", []) or not st.session_state.get("vector_store_initialized", False):
@@ -445,8 +446,7 @@ Je convertis ta réponse en format tabulaire, donc la structure doit être nette
         st.error(f"Erreur lors de l'extraction des informations: {str(e)}")
         st.error(traceback.format_exc())
         return f"Erreur lors de l'extraction: {str(e)}"
-    
-    
+
 def offer_download(extraction_result, format_type, items_extracted):
     """
     Offre des options pour télécharger les résultats d'extraction.
