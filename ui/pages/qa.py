@@ -11,9 +11,9 @@ from pathlib import Path
 
 # Import des modules de l'application
 from ui.components.visualization import display_chat_message, display_model_info
-from src.vector_db.retriever import create_user_aware_retriever  # Nouveau retriever spécifique à l'utilisateur
+from src.vector_db.retriever import create_user_aware_retriever
 from src.llm.models import LLMConfig, LLMProvider, create_llm
-from utils.session_utils import get_user_id, get_user_data_path, ensure_user_directories
+from utils.session_utils import get_user_id, get_user_data_path
 
 def detect_streamlit_cloud():
     """Détecte si l'application s'exécute sur Streamlit Cloud"""
@@ -23,11 +23,11 @@ def show_qa_page():
     """
     Affiche la page de questions-réponses avec un chat dédié par document et isolation par utilisateur.
     """
-    # Obtenir l'ID utilisateur
-    user_id = get_user_id()
-    
     # Titre de la page
     st.markdown("<h1 class='main-title'>Questions & Réponses 💬</h1>", unsafe_allow_html=True)
+    
+    # Obtenir l'ID utilisateur
+    user_id = get_user_id()
     
     # Vérifier si des documents sont chargés pour cet utilisateur
     if not st.session_state.get("documents", []) or not st.session_state.get("vector_store_initialized", False):
@@ -116,12 +116,12 @@ def show_qa_page():
             st.rerun()
     
     with col2:
-        # Bouton pour effacer toutes les conversations
-        if any(st.session_state.document_chats.values()) and st.button("Effacer toutes mes conversations", type="secondary"):
+        # Bouton pour effacer toutes les conversations de cet utilisateur
+        user_chats = [k for k in st.session_state.document_chats.keys() if k.startswith(f"{user_id}_")]
+        if any(st.session_state.document_chats.get(chat_id, []) for chat_id in user_chats) and st.button("Effacer toutes mes conversations", type="secondary"):
             # Ne supprime que les conversations de l'utilisateur actuel
-            user_chat_keys = [k for k in st.session_state.document_chats.keys() if k.startswith(f"{user_id}_")]
-            for key in user_chat_keys:
-                st.session_state.document_chats[key] = []
+            for chat_id in user_chats:
+                st.session_state.document_chats[chat_id] = []
             st.rerun()
 
 def process_question(question, doc_id, doc_index, user_id):
@@ -143,11 +143,15 @@ def process_question(question, doc_id, doc_index, user_id):
         provider = st.session_state.llm_provider
         model = st.session_state.llm_model
         
+        # Initialiser api_key et api_base avec des valeurs par défaut
+        api_key = None
+        api_base = None
+        
         # Importer les clés API depuis le fichier de configuration
         try:
             # Vérifier si nous sommes sur Streamlit Cloud (les secrets sont accessibles)
-            if "secrets" in st.secrets:
-                api_key = st.secrets["api_keys"][provider]
+            if hasattr(st, "secrets") and "api_keys" in st.secrets:
+                api_key = st.secrets["api_keys"].get(provider)
                 api_base = st.secrets.get("api_base_urls", {}).get(provider)
             
                 # Si pas de token dans les secrets pour ce provider, afficher un avertissement
@@ -155,14 +159,24 @@ def process_question(question, doc_id, doc_index, user_id):
                     st.warning(f"Aucun token {provider} configuré dans les secrets Streamlit.")
             else:
                 # Si pas de secrets, essayer d'utiliser config.py local
-                from config import API_KEYS, API_BASE_URLS
-                api_key = API_KEYS.get(provider)
-                api_base = API_BASE_URLS.get(provider)
+                try:
+                    from config import API_KEYS, API_BASE_URLS
+                    api_key = API_KEYS.get(provider)
+                    api_base = API_BASE_URLS.get(provider)
+                except ImportError:
+                    # Valeurs par défaut si le fichier n'existe pas
+                    api_key = None
+                    api_base = "https://models.inference.ai.azure.com" if provider == "github_inference" else None
+                    st.warning("Fichier config.py non trouvé. Les API nécessitant une authentification pourraient ne pas fonctionner.")
         except Exception as e:
+            st.warning(f"Erreur lors de la récupération des clés API: {str(e)}")
             # En dernier recours, utiliser des valeurs par défaut
             api_key = None
             api_base = "https://models.inference.ai.azure.com" if provider == "github_inference" else None
-            st.warning("Aucune configuration trouvée. L'API pourrait ne pas fonctionner sans authentification.")
+        
+        # Vérifier si GitHub Inference est choisi sans clé API
+        if provider == "github_inference" and not api_key:
+            return "Erreur: Aucune clé API GitHub Inference trouvée. Veuillez configurer une clé API dans config.py ou utiliser un autre fournisseur LLM comme Hugging Face.", []
         
         # Créer la configuration LLM
         config = LLMConfig(

@@ -141,14 +141,15 @@ def show_summary_page():
             # Permettre le téléchargement du résumé
             offer_download(summary_text, metadata)
 
-def generate_summary(length, style, doc_indices):
+def generate_summary(length, style, doc_indices, user_id):
     """
-    Génère un résumé des documents sélectionnés.
+    Génère un résumé des documents sélectionnés pour un utilisateur spécifique.
     
     Args:
         length: Longueur souhaitée pour le résumé
         style: Style souhaité pour le résumé
         doc_indices: Indices des documents à résumer
+        user_id: Identifiant unique de l'utilisateur
         
     Returns:
         Tuple contenant (texte du résumé, métadonnées)
@@ -210,12 +211,14 @@ def generate_summary(length, style, doc_indices):
         # Créer le LLM
         llm = create_llm(config)
         
-        # Créer le retriever
-        vector_store_path = "data/vector_store"
-        retriever = create_default_retriever(
-            store_path=vector_store_path,
+        # Créer le retriever spécifique à l'utilisateur
+        user_vector_store_path = str(get_user_data_path(user_id) / "vector_store")
+        store_type = "faiss"  # Utiliser FAISS pour assurer la compatibilité
+        retriever = create_user_aware_retriever(
+            user_id=user_id,
+            store_path=user_vector_store_path,
             embedder_model="all-MiniLM-L6-v2",
-            store_type="faiss",
+            store_type=store_type,
             top_k=10
         )
         
@@ -231,15 +234,15 @@ def generate_summary(length, style, doc_indices):
         }
         style_description = style_map.get(style, "informatif et factuel")
         
-        # APPROCHE ULTRA-SIMPLE: Récupérer directement le texte et construire un prompt
-        # Récupérer les chunks pertinents
+        # Récupérer les chunks pertinents spécifiques à l'utilisateur
         all_chunks = []
         for doc_name in selected_doc_names:
             doc_chunks = retriever.retrieve(
                 query=f"Contenu important de {doc_name}", 
                 top_k=20,
-                filter_metadata={"file_name": doc_name}
+                filter_metadata={"file_name": doc_name}  # Filtre explicite pour ce document
             )
+            
             all_chunks.extend(doc_chunks)
         
         # Extraire le texte de tous les chunks
@@ -282,7 +285,7 @@ Crée un résumé {style_description} de {length}. Le résumé doit être clair,
         st.error(error_text)
         return f"Erreur: {str(e)}", {}
     
-   
+    
 def offer_download(summary_text, metadata):
     """
     Offre des options pour télécharger le résumé.
@@ -323,3 +326,4 @@ def offer_download(summary_text, metadata):
         file_name="resume_assistdoc.md",
         mime="text/markdown",
     )
+    
