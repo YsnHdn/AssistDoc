@@ -358,6 +358,7 @@ Je convertis ta réponse en format tabulaire, donc la structure doit être nette
         # Si format Tableau et pas déjà JSON, essayer de le convertir en structure tabulaire
         elif output_format == "Tableau":
             try:
+                import re
                 # D'abord essayer de voir si le texte contient du JSON
                 json_match = re.search(r'({[\s\S]*})', content)
                 if json_match:
