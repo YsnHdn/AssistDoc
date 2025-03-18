@@ -7,6 +7,7 @@ import streamlit as st
 import os
 import time
 from pathlib import Path
+import nltk
 
 # Import des modules de l'application
 from ui.pages.home import show_home_page
@@ -15,6 +16,9 @@ from ui.pages.summary import show_summary_page
 from ui.pages.extraction import show_extraction_page
 from ui.components.sidebar import create_sidebar
 
+# Restaurer la fonction d'origine
+if hasattr(nltk.data, 'original_find'):
+    nltk.data.find = nltk.data.original_find
 # CSS personnalisé pour améliorer l'apparence
 custom_css = """
 <style>

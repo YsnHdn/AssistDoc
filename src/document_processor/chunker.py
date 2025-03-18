@@ -9,16 +9,11 @@ import uuid
 import logging
 from typing import List, Dict, Any, Optional, Callable, Union
 import nltk
+from nltk.tokenize import sent_tokenize
 
 # Configuration du logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# Utiliser la version sécurisée de sent_tokenize si disponible
-try:
-    from nltk_utils import safe_sent_tokenize as sent_tokenize
-except ImportError:
-    from nltk.tokenize import sent_tokenize
 
 class DocumentChunker:
     """
@@ -32,12 +27,11 @@ class DocumentChunker:
         
         # S'assurer que les ressources NLTK nécessaires sont disponibles
         try:
-            nltk.data.find('tokenizers/punkt')
-            logger.info("Ressources NLTK 'punkt' déjà disponibles")
-        except LookupError:
-            logger.info("Téléchargement des ressources NLTK 'punkt'...")
-            nltk.download('punkt')
-            logger.info("Ressources NLTK téléchargées avec succès")
+            # Télécharger les ressources directement au lieu d'utiliser find
+            nltk.download('punkt', quiet=True)
+            logger.info("Ressources NLTK 'punkt' téléchargées avec succès")
+        except Exception as e:
+            logger.warning(f"Erreur lors du téléchargement des ressources NLTK: {str(e)}")
     
     def chunk_document(self,
                        document: Dict[str, Any],
@@ -64,33 +58,18 @@ class DocumentChunker:
             logger.warning("Document vide fourni pour le chunking")
             return []
         
-        try:
-            # Sélectionner la fonction de chunking appropriée
-            if strategy == 'paragraph':
-                chunks = self._chunk_by_paragraph(document, min_chunk_length)
-            elif strategy == 'sentence':
-                chunks = self._chunk_by_sentence(document, min_chunk_length)
-            elif strategy == 'fixed':
-                chunks = self._chunk_by_fixed_size(document, chunk_size, chunk_overlap, min_chunk_length)
-            elif strategy == 'semantic':
-                chunks = self._chunk_by_semantic(document, chunk_size, chunk_overlap, min_chunk_length)
-            else:
-                logger.error(f"Stratégie de chunking non reconnue: {strategy}")
-                logger.info("Utilisation de la stratégie par paragraphe par défaut")
-                chunks = self._chunk_by_paragraph(document, min_chunk_length)
-        except Exception as e:
-            logger.error(f"Erreur lors du chunking avec la stratégie {strategy}: {str(e)}")
-            logger.info("Utilisation de la stratégie par paragraphe comme solution de secours")
-            # En cas d'erreur, revenir à la méthode la plus simple et la plus robuste
+        # Sélectionner la fonction de chunking appropriée
+        if strategy == 'paragraph':
             chunks = self._chunk_by_paragraph(document, min_chunk_length)
-        
-        # Si aucun chunk n'a été créé, utiliser le texte complet comme un seul chunk
-        if not chunks and document.get('full_text'):
-            logger.warning("Aucun chunk créé, utilisation du texte complet comme un seul chunk")
-            chunks = [{
-                'text': document.get('full_text', ''),
-                'method': 'fallback'
-            }]
+        elif strategy == 'sentence':
+            chunks = self._chunk_by_sentence(document, min_chunk_length)
+        elif strategy == 'fixed':
+            chunks = self._chunk_by_fixed_size(document, chunk_size, chunk_overlap, min_chunk_length)
+        elif strategy == 'semantic':
+            chunks = self._chunk_by_semantic(document, chunk_size, chunk_overlap, min_chunk_length)
+        else:
+            logger.error(f"Stratégie de chunking non reconnue: {strategy}")
+            raise ValueError(f"Stratégie de chunking non reconnue: {strategy}")
         
         # Ajouter des metadonnées aux chunks
         for i, chunk in enumerate(chunks):
@@ -190,14 +169,8 @@ class DocumentChunker:
         # Récupérer le texte complet
         full_text = document.get('full_text', '')
         
-        # Tokeniser en phrases avec gestion d'erreurs
-        try:
-            sentences = sent_tokenize(full_text)
-        except Exception as e:
-            logger.warning(f"Erreur lors de la tokenisation avec NLTK: {str(e)}")
-            # Fallback: découpage simple par points, points d'exclamation et d'interrogation
-            logger.info("Utilisation d'une méthode de découpage simple en phrases")
-            sentences = re.split(r'(?<=[.!?])\s+', full_text)
+        # Tokeniser en phrases
+        sentences = sent_tokenize(full_text)
         
         # Créer un chunk pour chaque phrase suffisamment longue
         for sent_index, sentence in enumerate(sentences):
@@ -311,19 +284,12 @@ class DocumentChunker:
         Returns:
             Liste de chunks sémantiquement cohérents
         """
-        try:
-            # D'abord, nous divisons le document en phrases
-            sentence_chunks = self._chunk_by_sentence(document, 0)  # min_length = 0 car on va regrouper ensuite
-            
-            # Si pas de phrases trouvées, revenir à la méthode par taille fixe
-            if not sentence_chunks:
-                logger.warning("Pas de phrases trouvées, utilisation du chunking par taille fixe")
-                return self._chunk_by_fixed_size(document, chunk_size, chunk_overlap, min_length)
-            
-        except Exception as e:
-            logger.warning(f"Erreur lors du chunking par phrases: {str(e)}")
-            # En cas d'erreur, fallback sur le chunking par taille fixe
-            logger.info("Utilisation de la méthode de chunking par taille fixe comme solution de secours")
+        # D'abord, nous divisons le document en phrases
+        sentence_chunks = self._chunk_by_sentence(document, 0)  # min_length = 0 car on va regrouper ensuite
+        
+        # Si pas de phrases trouvées, revenir à la méthode par taille fixe
+        if not sentence_chunks:
+            logger.warning("Pas de phrases trouvées, utilisation du chunking par taille fixe")
             return self._chunk_by_fixed_size(document, chunk_size, chunk_overlap, min_length)
         
         # Ensuite, regrouper les phrases en chunks de taille maximale chunk_size
@@ -372,11 +338,6 @@ class DocumentChunker:
         # Ajouter le dernier chunk s'il est assez long
         if current_chunk['text'] and len(current_chunk['text']) >= min_length:
             chunks.append(current_chunk)
-        
-        # Vérifier si des chunks ont été créés, sinon utiliser la méthode par taille fixe
-        if not chunks:
-            logger.warning("Aucun chunk créé avec la méthode sémantique, utilisation du chunking par taille fixe")
-            return self._chunk_by_fixed_size(document, chunk_size, chunk_overlap, min_length)
         
         # Finaliser les chunks avec des métadonnées additionnelles
         result_chunks = []
