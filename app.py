@@ -79,9 +79,9 @@ def main():
     if "llm_model" not in st.session_state:
         st.session_state.llm_model = "gpt-4o"
     
-    # S'assurer que l'ID utilisateur existe (géré par document_uploader.py)
+    # S'assurer que l'ID utilisateur existe
     if "user_id" not in st.session_state:
-        from ui.components.document_uploader import get_user_id
+        from utils.session_utils import get_user_id
         st.session_state.user_id = get_user_id()
     
     # Créer la barre latérale

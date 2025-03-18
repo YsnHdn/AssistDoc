@@ -9,7 +9,8 @@ import os
 from pathlib import Path
 
 # Import des composants avec le nouveau module de gestion des documents
-from ui.components.document_uploader import show_document_uploader, clear_all_documents, get_user_id
+from ui.components.document_uploader import show_document_uploader, clear_all_documents
+from utils.session_utils import get_user_id, get_user_data_path, ensure_user_directories
 
 def create_sidebar(change_page_callback):
     """

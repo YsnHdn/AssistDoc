@@ -13,6 +13,7 @@ import io
 from ui.components.visualization import display_summary, display_model_info
 from src.vector_db.retriever import create_default_retriever
 from src.llm.models import LLMConfig, LLMProvider, create_llm
+from utils.session_utils import get_user_id, get_user_data_path, ensure_user_directories
 
 def detect_streamlit_cloud():
     """Détecte si l'application s'exécute sur Streamlit Cloud"""

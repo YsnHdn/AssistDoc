@@ -18,6 +18,7 @@ from src.document_processor.parser import DocumentParser
 from src.document_processor.chunker import DocumentChunker
 from src.document_processor.embedder import DocumentEmbedder
 from src.vector_db.store import create_vector_store
+from utils.session_utils import get_user_id, get_user_data_path, ensure_user_directories
 
 # Constantes pour les chemins de stockage
 DATA_DIR = Path("data")

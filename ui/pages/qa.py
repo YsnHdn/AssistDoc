@@ -13,7 +13,7 @@ from pathlib import Path
 from ui.components.visualization import display_chat_message, display_model_info
 from src.vector_db.retriever import create_user_aware_retriever  # Nouveau retriever spécifique à l'utilisateur
 from src.llm.models import LLMConfig, LLMProvider, create_llm
-from ui.components.document_uploader import get_user_id, get_user_data_path  # Nouvelles fonctions pour l'isolation
+from utils.session_utils import get_user_id, get_user_data_path, ensure_user_directories
 
 def detect_streamlit_cloud():
     """Détecte si l'application s'exécute sur Streamlit Cloud"""
