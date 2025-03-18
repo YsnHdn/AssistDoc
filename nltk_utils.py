@@ -11,15 +11,7 @@ logger = logging.getLogger(__name__)
 def simple_sentence_tokenize(text):
     """
     Fonction simple de tokenisation en phrases qui ne dépend pas de ressources externes.
-    
-    Args:
-        text: Texte à découper en phrases
-        
-    Returns:
-        Liste de phrases
     """
-    # Expression régulière pour découper sur les ponctuations de fin de phrase
-    # suivies d'un espace ou d'une nouvelle ligne
     if not text:
         return []
     
@@ -35,13 +27,6 @@ def simple_sentence_tokenize(text):
 def safe_sent_tokenize(text, language='french'):
     """
     Version sécurisée de nltk.sent_tokenize qui utilise un fallback en cas d'erreur.
-    
-    Args:
-        text: Texte à découper en phrases
-        language: Langue du texte (par défaut: français)
-        
-    Returns:
-        Liste de phrases
     """
     if not text:
         return []
@@ -58,15 +43,16 @@ def safe_sent_tokenize(text, language='french'):
 try:
     original_find = nltk.data.find
     
-    def patched_find(resource_name):
+    def patched_find(resource_name, paths=None):
         """
         Version patchée de nltk.data.find qui redirige punkt_tab vers punkt.
+        Accepte également le paramètre paths pour correspondre à la signature d'origine.
         """
         if 'punkt_tab' in resource_name:
-            # Rediriger vers punkt
+        # Rediriger vers punkt
             modified_resource = resource_name.replace('punkt_tab', 'punkt')
-            return original_find(modified_resource)
-        return original_find(resource_name)
+            return original_find(modified_resource, paths)
+        return original_find(resource_name, paths)
     
     # Appliquer le patch
     nltk.data.find = patched_find
