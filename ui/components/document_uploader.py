@@ -366,7 +366,7 @@ def process_documents(uploaded_files):
             # Découper le document en chunks
             chunks = chunker.chunk_document(
                 doc,
-                strategy="semantic",
+                strategy="paragraph",
                 chunk_size=1000,
                 chunk_overlap=200
             )
