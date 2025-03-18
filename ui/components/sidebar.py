@@ -1,16 +1,16 @@
 """
 Composant pour la barre latérale de l'application.
 Gère la navigation et les paramètres globaux.
-Adapté pour afficher les informations de session utilisateur.
+Version améliorée avec gestion d'utilisateur et meilleure gestion des clés API.
 """
 
 import streamlit as st
 import os
 from pathlib import Path
 
-# Import des composants avec le nouveau module de gestion des documents
+# Import des composants de gestion des documents et des utilisateurs
 from ui.components.document_uploader import show_document_uploader, clear_all_documents
-from utils.session_utils import get_user_id, get_user_data_path, ensure_user_directories
+from utils.session_utils import get_user_id
 
 def create_sidebar(change_page_callback):
     """
@@ -96,54 +96,51 @@ def create_sidebar(change_page_callback):
         if selected_model != st.session_state.llm_model:
             st.session_state.llm_model = selected_model
         
-        # Afficher le statut de connexion
-        try:
-            # Vérifier si le token est disponible
-            try:
-                from config import API_KEYS
-                
-                if selected_provider == "github_inference" and API_KEYS.get("github_inference"):
-                    st.success("Connecté à GitHub Inference API")
-                elif selected_provider == "huggingface" and API_KEYS.get("huggingface"):
-                    st.success("Connecté à Hugging Face")
-                else:
-                    st.warning(f"Token {selected_provider} non configuré ou vide")
-                    st.info("Créez un fichier config.py avec vos clés API ou utilisez un modèle local")
-            except ImportError:
-                st.warning("Fichier config.py non trouvé")
-                st.info("Créez un fichier config.py avec vos clés API ou utilisez un modèle local Hugging Face")
-                
-                # Créer un exemple de fichier config.py
-                with st.expander("Exemple de config.py"):
-                    st.code('''
-"""
-Configuration de l'application AssistDoc.
-Ce fichier contient les clés d'API et autres configurations sensibles.
-NE PAS INCLURE CE FICHIER DANS LE DÉPÔT GIT.
-"""
-
-# Clés d'API pour les différents fournisseurs LLM
-API_KEYS = {
-    "github_inference": "votre_token_github_ici",
-    "openai": "",
-    "anthropic": "",
-    "huggingface": ""
-}
-
-# URLs de base pour les API (optionnel)
-API_BASE_URLS = {
-    "github_inference": "https://models.inference.ai.azure.com",
-    "openai": None,
-    "anthropic": None,
-    "azure_openai": None
-}
-
-# Autres configurations
-DEFAULT_PROVIDER = "github_inference"
-DEFAULT_MODEL = "gpt-4o"
-''', language="python")
-        except Exception as e:
-            st.error(f"Erreur lors de la vérification des clés API: {str(e)}")
+        # Saisie manuelle de clé API pour GitHub Inference
+        if selected_provider == "github_inference":
+            # Stocker la clé API dans la session si elle n'existe pas déjà
+            if "github_api_key" not in st.session_state:
+                st.session_state.github_api_key = ""
+            
+            api_key_input = st.text_input(
+                "Clé API GitHub Inference",
+                value=st.session_state.github_api_key,
+                type="password",
+                help="Entrez votre token GitHub Personal Access Token avec accès à Inference"
+            )
+            
+            # Mettre à jour la clé dans la session si elle a changé
+            if api_key_input != st.session_state.github_api_key:
+                st.session_state.github_api_key = api_key_input
+                st.success("Clé API mise à jour")
+            
+            # Afficher le statut de la connexion
+            if st.session_state.github_api_key:
+                st.success("Clé API GitHub Inference configurée")
+            else:
+                st.warning("Veuillez entrer une clé API GitHub Inference pour utiliser ce service")
+                st.info("Vous pouvez obtenir une clé sur https://github.com/settings/tokens")
+        
+        # Informations spécifiques pour Hugging Face
+        if selected_provider == "huggingface":
+            st.info("Vous pouvez utiliser les modèles Hugging Face sans clé API")
+            
+            # Option Hugging Face API (optionnelle)
+            if "huggingface_api_key" not in st.session_state:
+                st.session_state.huggingface_api_key = ""
+            
+            hf_api_key = st.text_input(
+                "Clé API Hugging Face (optionnelle)",
+                value=st.session_state.huggingface_api_key,
+                type="password",
+                help="Entrez votre clé API Hugging Face pour utiliser l'API Inference"
+            )
+            
+            # Mettre à jour la clé dans la session si elle a changé
+            if hf_api_key != st.session_state.huggingface_api_key:
+                st.session_state.huggingface_api_key = hf_api_key
+                if hf_api_key:
+                    st.success("Clé API Hugging Face mise à jour")
         
         # Bouton de réinitialisation de la base de données pour cet utilisateur
         with st.expander("Paramètres avancés", expanded=False):
@@ -152,7 +149,7 @@ DEFAULT_MODEL = "gpt-4o"
                 if clear_all_documents(user_id):
                     # Réinitialiser les états de session
                     for key in list(st.session_state.keys()):
-                        if key not in ["current_page", "user_id"]:  # Conserver la page actuelle et l'ID utilisateur
+                        if key not in ["current_page", "user_id", "github_api_key", "huggingface_api_key"]:
                             del st.session_state[key]
                     
                     # Réinitialiser les valeurs par défaut
@@ -162,7 +159,7 @@ DEFAULT_MODEL = "gpt-4o"
                     # Nettoyer l'historique de chat de cet utilisateur
                     if "document_chats" in st.session_state:
                         user_chats = {k: v for k, v in st.session_state.document_chats.items() 
-                                    if not k.startswith(f"{user_id}_")}
+                                   if not k.startswith(f"{user_id}_")}
                         st.session_state.document_chats = user_chats
                     else:
                         st.session_state.document_chats = {}
