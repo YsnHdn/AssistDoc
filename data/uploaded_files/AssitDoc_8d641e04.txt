@@ -1,5 +1,0 @@
-- Conception et développement d’un assistant intelligent d’analyse documentaire combinant RAG et
-LLMs.
-- Implémentation d’un agent autonome capablede répondre à des questions complexes sur des documents PDF et texte.
-- Développement d’un système de génération derésumés adaptatifs et d’extraction de points clés avec mise en évidence contextuelle.
-- Déploiement d’une interface utilisateur interactive via Streamlit
