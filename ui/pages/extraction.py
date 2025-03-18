@@ -1,6 +1,7 @@
 """
 Page d'extraction d'informations de l'application AssistDoc.
 Permet d'extraire des informations structurées des documents.
+Mise à jour pour supporter l'isolation des données par utilisateur.
 """
 
 import streamlit as st
@@ -13,8 +14,9 @@ import io
 
 # Import des modules de l'application
 from ui.components.visualization import display_extraction_results, display_model_info
-from src.vector_db.retriever import create_default_retriever
+from src.vector_db.retriever import create_user_aware_retriever
 from src.llm.models import LLMConfig, LLMProvider, create_llm
+from ui.components.document_uploader import get_user_id, get_user_data_path
 
 def detect_streamlit_cloud():
     """Détecte si l'application s'exécute sur Streamlit Cloud"""
@@ -22,12 +24,15 @@ def detect_streamlit_cloud():
 
 def show_extraction_page():
     """
-    Affiche la page d'extraction d'informations.
+    Affiche la page d'extraction d'informations avec isolation par utilisateur.
     """
+    # Obtenir l'ID utilisateur
+    user_id = get_user_id()
+    
     # Titre de la page
     st.markdown("<h1 class='main-title'>Extraction d'Informations 🔍</h1>", unsafe_allow_html=True)
     
-    # Vérifier si des documents sont chargés
+    # Vérifier si des documents sont chargés pour cet utilisateur
     if not st.session_state.get("documents", []) or not st.session_state.get("vector_store_initialized", False):
         st.warning("Aucun document chargé. Veuillez d'abord charger et indexer des documents dans la barre latérale.")
         return
@@ -147,7 +152,8 @@ def show_extraction_page():
             extraction_result = extract_information(
                 items_to_extract,
                 output_format,
-                selected_doc_indices
+                selected_doc_indices,
+                user_id
             )
         
         # Afficher les résultats
@@ -161,14 +167,15 @@ def show_extraction_page():
             # Permettre le téléchargement des résultats
             offer_download(extraction_result, output_format, items_to_extract)
 
-def extract_information(items_to_extract, output_format, doc_indices):
+def extract_information(items_to_extract, output_format, doc_indices, user_id):
     """
-    Extrait des informations des documents sélectionnés.
+    Extrait des informations des documents sélectionnés pour un utilisateur spécifique.
     
     Args:
         items_to_extract: Liste des éléments à extraire
         output_format: Format de sortie souhaité
         doc_indices: Indices des documents à analyser
+        user_id: Identifiant unique de l'utilisateur
         
     Returns:
         Résultat de l'extraction (structure JSON ou texte)
@@ -178,40 +185,26 @@ def extract_information(items_to_extract, output_format, doc_indices):
         provider = st.session_state.llm_provider
         model = st.session_state.llm_model
         
-        # Initialiser api_key et api_base avec des valeurs par défaut
-        api_key = None
-        api_base = None
-        
         # Importer les clés API depuis le fichier de configuration
         try:
             # Vérifier si nous sommes sur Streamlit Cloud (les secrets sont accessibles)
-            if hasattr(st, "secrets") and "api_keys" in st.secrets:
-                api_key = st.secrets["api_keys"].get(provider)
+            if "secrets" in st.secrets:
+                api_key = st.secrets["api_keys"][provider]
                 api_base = st.secrets.get("api_base_urls", {}).get(provider)
-            
+        
                 # Si pas de token dans les secrets pour ce provider, afficher un avertissement
                 if not api_key:
                     st.warning(f"Aucun token {provider} configuré dans les secrets Streamlit.")
-            else:
-                # Si pas de secrets, essayer d'utiliser config.py local
-                try:
+                else:
+                    # Si pas de secrets, essayer d'utiliser config.py local
                     from config import API_KEYS, API_BASE_URLS
                     api_key = API_KEYS.get(provider)
                     api_base = API_BASE_URLS.get(provider)
-                except ImportError:
-                    # Valeurs par défaut si le fichier n'existe pas
-                    api_key = None
-                    api_base = "https://models.inference.ai.azure.com" if provider == "github_inference" else None
-                    st.warning("Fichier config.py non trouvé. Les API nécessitant une authentification pourraient ne pas fonctionner.")
         except Exception as e:
-            st.warning(f"Erreur lors de la récupération des clés API: {str(e)}")
             # En dernier recours, utiliser des valeurs par défaut
             api_key = None
             api_base = "https://models.inference.ai.azure.com" if provider == "github_inference" else None
-        
-        # Vérifier si GitHub Inference est choisi sans clé API
-        if provider == "github_inference" and not api_key:
-            return "Erreur: Aucune clé API GitHub Inference trouvée. Veuillez configurer une clé API ou utiliser un autre fournisseur LLM comme Hugging Face."
+            st.warning("Aucune configuration trouvée. L'API pourrait ne pas fonctionner sans authentification.")
         
         # Créer la configuration LLM
         config = LLMConfig(
@@ -230,11 +223,12 @@ def extract_information(items_to_extract, output_format, doc_indices):
         # Créer le LLM
         llm = create_llm(config)
         
-        # Créer le retriever - Toujours utiliser FAISS sur Streamlit Cloud
-        vector_store_path = "data/vector_store"
+        # Créer le retriever spécifique à l'utilisateur
+        user_vector_store_path = str(get_user_data_path(user_id) / "vector_store")
         store_type = "faiss"  # Utiliser FAISS pour assurer la compatibilité
-        retriever = create_default_retriever(
-            store_path=vector_store_path,
+        retriever = create_user_aware_retriever(
+            user_id=user_id,
+            store_path=user_vector_store_path,
             embedder_model="all-MiniLM-L6-v2",
             store_type=store_type,
             top_k=8
@@ -243,7 +237,7 @@ def extract_information(items_to_extract, output_format, doc_indices):
         # Obtenir les noms des documents sélectionnés
         selected_doc_names = [st.session_state.documents[i].get("file_name") for i in doc_indices]
         
-        # APPROCHE DIRECTE: récupérer les chunks, les filtrer, puis générer la réponse
+        # Récupérer les chunks pertinents spécifiques à l'utilisateur
         all_chunks = []
         
         # Pour chaque document, récupérer des chunks pertinents
@@ -251,14 +245,12 @@ def extract_information(items_to_extract, output_format, doc_indices):
             # Récupérer tous les chunks disponibles pour ce document
             chunks = retriever.retrieve(
                 query=f"informations importantes sur {doc_name}",
-                top_k=20
+                top_k=20,
+                filter_metadata={"file_name": doc_name}  # Filtre explicite pour ce document
             )
             
-            # Filtrer pour ce document spécifique
-            doc_chunks = [chunk for chunk in chunks if chunk.get("file_name") == doc_name]
-            
             # Si aucun chunk trouvé, essayer d'accéder au texte brut du document
-            if not doc_chunks:
+            if not chunks:
                 for i, doc in enumerate(st.session_state.documents):
                     if doc.get("file_name") == doc_name and "full_text" in doc:
                         # Diviser le texte en chunks
@@ -267,18 +259,19 @@ def extract_information(items_to_extract, output_format, doc_indices):
                         
                         for j in range(0, len(text), chunk_size):
                             end = min(j + chunk_size, len(text))
-                            doc_chunks.append({
+                            chunks.append({
                                 "text": text[j:end],
                                 "file_name": doc_name,
+                                "user_id": user_id,  # Ajouter l'ID utilisateur
                                 "score": 0.5
                             })
                         
                         # Limiter le nombre de chunks
-                        if doc_chunks:
-                            doc_chunks = doc_chunks[:5]
+                        if chunks:
+                            chunks = chunks[:5]
                             break
             
-            all_chunks.extend(doc_chunks)
+            all_chunks.extend(chunks)
         
         # Limiter le nombre total de chunks
         all_chunks = all_chunks[:15]
@@ -351,7 +344,6 @@ Je convertis ta réponse en format tabulaire, donc la structure doit être nette
         # Si format Tableau et pas déjà JSON, essayer de le convertir en structure tabulaire
         elif output_format == "Tableau":
             try:
-                import re
                 # D'abord essayer de voir si le texte contient du JSON
                 json_match = re.search(r'({[\s\S]*})', content)
                 if json_match:
@@ -388,9 +380,6 @@ Je convertis ta réponse en format tabulaire, donc la structure doit être nette
                 
                 # Dernière tentative: essayer de parser comme tableau markdown ou CSV
                 if "|" in content:
-                    import pandas as pd
-                    import io
-                    
                     # Nettoyer le contenu pour le format markdown
                     lines = [line.strip() for line in content.strip().split('\n') if line.strip()]
                     

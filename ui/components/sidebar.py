@@ -1,6 +1,7 @@
 """
 Composant pour la barre latérale de l'application.
 Gère la navigation et les paramètres globaux.
+Adapté pour afficher les informations de session utilisateur.
 """
 
 import streamlit as st
@@ -8,7 +9,7 @@ import os
 from pathlib import Path
 
 # Import des composants avec le nouveau module de gestion des documents
-from ui.components.document_uploader import show_document_uploader, clear_all_documents
+from ui.components.document_uploader import show_document_uploader, clear_all_documents, get_user_id
 
 def create_sidebar(change_page_callback):
     """
@@ -23,6 +24,10 @@ def create_sidebar(change_page_callback):
         
         st.title("📚 AssistDoc")
         st.caption("Assistant intelligent pour vos documents")
+        
+        # Afficher l'identifiant de session utilisateur (tronqué pour la sécurité)
+        user_id = get_user_id()
+        st.info(f"Session privée: {user_id[:8]}...")
         
         # Séparateur
         st.divider()
@@ -47,10 +52,8 @@ def create_sidebar(change_page_callback):
         st.divider()
         
         # Uploader de documents
-        st.subheader("Documents")
+        st.subheader("Mes Documents")
         show_document_uploader()
-        
-        # Statut des documents - géré maintenant directement dans show_document_uploader
         
         # Séparateur
         st.divider()
@@ -94,42 +97,24 @@ def create_sidebar(change_page_callback):
         
         # Afficher le statut de connexion
         try:
-            # Vérifier si les secrets sont disponibles sur Streamlit Cloud
-            if hasattr(st, "secrets") and "api_keys" in st.secrets:
-                provider_key = st.secrets["api_keys"].get(selected_provider)
-                if provider_key:
-                    st.success(f"Connecté à {provider_options[selected_provider]} via secrets Streamlit")
-                else:
-                    if selected_provider == "huggingface":
-                        st.info("Vous pouvez utiliser un modèle local Hugging Face sans clé API")
-                    else:
-                        st.warning(f"Token {selected_provider} non configuré dans les secrets Streamlit")
-            else:
-                # Si pas de secrets, essayer d'utiliser config.py local
-                try:
-                    from config import API_KEYS
-                    
-                    if selected_provider == "github_inference" and API_KEYS.get("github_inference"):
-                        st.success("Connecté à GitHub Inference API via config.py")
-                    elif selected_provider == "huggingface" and API_KEYS.get("huggingface"):
-                        st.success("Connecté à Hugging Face via config.py")
-                    else:
-                        if selected_provider == "huggingface":
-                            st.info("Vous pouvez utiliser un modèle local Hugging Face sans clé API")
-                        else:
-                            st.warning(f"Token {selected_provider} non configuré ou vide dans config.py")
-                except ImportError:
-                    if selected_provider == "huggingface":
-                        st.info("Vous pouvez utiliser un modèle local Hugging Face sans clé API")
-                    else:
-                        st.warning("Fichier config.py non trouvé")
-                        st.info("Créez un fichier config.py avec vos clés API ou utilisez un modèle local Hugging Face")
+            # Vérifier si le token est disponible
+            try:
+                from config import API_KEYS
                 
-                # Afficher l'exemple de config.py uniquement si aucun secret n'est disponible
-                if not (hasattr(st, "secrets") and "api_keys" in st.secrets):
-                    # Créer un exemple de fichier config.py
-                    with st.expander("Exemple de config.py"):
-                        st.code('''
+                if selected_provider == "github_inference" and API_KEYS.get("github_inference"):
+                    st.success("Connecté à GitHub Inference API")
+                elif selected_provider == "huggingface" and API_KEYS.get("huggingface"):
+                    st.success("Connecté à Hugging Face")
+                else:
+                    st.warning(f"Token {selected_provider} non configuré ou vide")
+                    st.info("Créez un fichier config.py avec vos clés API ou utilisez un modèle local")
+            except ImportError:
+                st.warning("Fichier config.py non trouvé")
+                st.info("Créez un fichier config.py avec vos clés API ou utilisez un modèle local Hugging Face")
+                
+                # Créer un exemple de fichier config.py
+                with st.expander("Exemple de config.py"):
+                    st.code('''
 """
 Configuration de l'application AssistDoc.
 Ce fichier contient les clés d'API et autres configurations sensibles.
@@ -159,23 +144,33 @@ DEFAULT_MODEL = "gpt-4o"
         except Exception as e:
             st.error(f"Erreur lors de la vérification des clés API: {str(e)}")
         
-        # Bouton de réinitialisation de la base de données
+        # Bouton de réinitialisation de la base de données pour cet utilisateur
         with st.expander("Paramètres avancés", expanded=False):
-            if st.button("Réinitialiser l'application", type="secondary"):
-                if clear_all_documents():
-                    # Réinitialiser tous les états de session
+            if st.button("Réinitialiser ma session", type="secondary"):
+                # Nettoyer les documents de l'utilisateur actuel uniquement
+                if clear_all_documents(user_id):
+                    # Réinitialiser les états de session
                     for key in list(st.session_state.keys()):
-                        if key != "current_page":  # Conserver la page actuelle
+                        if key not in ["current_page", "user_id"]:  # Conserver la page actuelle et l'ID utilisateur
                             del st.session_state[key]
                     
                     # Réinitialiser les valeurs par défaut
                     st.session_state.documents = []
                     st.session_state.vector_store_initialized = False
-                    st.session_state.chat_history = []
+                    
+                    # Nettoyer l'historique de chat de cet utilisateur
+                    if "document_chats" in st.session_state:
+                        user_chats = {k: v for k, v in st.session_state.document_chats.items() 
+                                    if not k.startswith(f"{user_id}_")}
+                        st.session_state.document_chats = user_chats
+                    else:
+                        st.session_state.document_chats = {}
+                    
+                    # Réinitialiser le modèle par défaut
                     st.session_state.llm_provider = "github_inference"
                     st.session_state.llm_model = "gpt-4o"
                     
-                    st.success("Application réinitialisée avec succès")
+                    st.success("Votre session a été réinitialisée avec succès")
                     st.rerun()
         
         # Footer
