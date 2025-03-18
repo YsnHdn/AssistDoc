@@ -178,26 +178,40 @@ def extract_information(items_to_extract, output_format, doc_indices):
         provider = st.session_state.llm_provider
         model = st.session_state.llm_model
         
+        # Initialiser api_key et api_base avec des valeurs par défaut
+        api_key = None
+        api_base = None
+        
         # Importer les clés API depuis le fichier de configuration
         try:
-        # Vérifier si nous sommes sur Streamlit Cloud (les secrets sont accessibles)
-            if "secrets" in st.secrets:
-                api_key = st.secrets["api_keys"][provider]
+            # Vérifier si nous sommes sur Streamlit Cloud (les secrets sont accessibles)
+            if hasattr(st, "secrets") and "api_keys" in st.secrets:
+                api_key = st.secrets["api_keys"].get(provider)
                 api_base = st.secrets.get("api_base_urls", {}).get(provider)
-        
+            
                 # Si pas de token dans les secrets pour ce provider, afficher un avertissement
                 if not api_key:
                     st.warning(f"Aucun token {provider} configuré dans les secrets Streamlit.")
-                else:
-                    # Si pas de secrets, essayer d'utiliser config.py local
+            else:
+                # Si pas de secrets, essayer d'utiliser config.py local
+                try:
                     from config import API_KEYS, API_BASE_URLS
                     api_key = API_KEYS.get(provider)
                     api_base = API_BASE_URLS.get(provider)
+                except ImportError:
+                    # Valeurs par défaut si le fichier n'existe pas
+                    api_key = None
+                    api_base = "https://models.inference.ai.azure.com" if provider == "github_inference" else None
+                    st.warning("Fichier config.py non trouvé. Les API nécessitant une authentification pourraient ne pas fonctionner.")
         except Exception as e:
+            st.warning(f"Erreur lors de la récupération des clés API: {str(e)}")
             # En dernier recours, utiliser des valeurs par défaut
             api_key = None
             api_base = "https://models.inference.ai.azure.com" if provider == "github_inference" else None
-            st.warning("Aucune configuration trouvée. L'API pourrait ne pas fonctionner sans authentification.")
+        
+        # Vérifier si GitHub Inference est choisi sans clé API
+        if provider == "github_inference" and not api_key:
+            return "Erreur: Aucune clé API GitHub Inference trouvée. Veuillez configurer une clé API ou utiliser un autre fournisseur LLM comme Hugging Face."
         
         # Créer la configuration LLM
         config = LLMConfig(

@@ -14,5 +14,21 @@
       "creation_date": "D:20241101223418Z"
     },
     "timestamp": 1742257258.9121318
+  },
+  {
+    "file_name": "Cover_Letter_HANDANE_Yassine_RTE.pdf",
+    "file_type": "pdf",
+    "file_path": "C:\\Users\\user\\AppData\\Local\\Temp\\tmp8b5oyacj.pdf",
+    "storage_path": "data\\uploaded_files\\Cover_Letter_HANDANE_Yassine_RTE_8a30d45b.pdf",
+    "file_hash": "8a30d45b3e1daed91563b66bef02d7f13d3a6dac55c248b881dfaec424082e10",
+    "num_pages": 1,
+    "metadata": {
+      "title": "",
+      "author": "",
+      "creator": "TeX",
+      "producer": "pdfTeX-1.40.26",
+      "creation_date": "D:20241107021157Z"
+    },
+    "timestamp": 1742258971.087776
   }
 ]
