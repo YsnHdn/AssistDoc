@@ -2,6 +2,7 @@
 config.py
 test/llms/test_github_openai.py
 .devcontainer/
+download_model.py
 # Fichiers de cache Python
 __pycache__/
 *.py[cod]

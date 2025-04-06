@@ -376,7 +376,21 @@ def process_documents(uploaded_files, user_id):
         # Initialiser les composants de traitement
         parser = DocumentParser()
         chunker = DocumentChunker()
-        embedder = DocumentEmbedder(model_name="all-MiniLM-L6-v2")
+        
+        # Essayer d'utiliser le modèle local d'abord
+        try:
+            # Vérifier si le modèle local existe
+            local_model_path = Path("models/all-MiniLM-L6-v2")
+            if local_model_path.exists():
+                st.info("Utilisation du modèle d'embedding local")
+                embedder = DocumentEmbedder(model_name=str(local_model_path))
+            else:
+                st.info("Modèle local non trouvé, tentative d'utilisation du modèle en ligne")
+                embedder = DocumentEmbedder(model_name="all-MiniLM-L6-v2")
+        except Exception as e:
+            st.warning(f"Erreur lors de l'initialisation du modèle d'embedding: {str(e)}")
+            st.error("Impossible de continuer sans modèle d'embedding. Veuillez contacter l'administrateur.")
+            return
         
         # Initialiser le vector store spécifique à l'utilisateur
         user_vector_store_path = get_user_data_path(user_id) / "vector_store"

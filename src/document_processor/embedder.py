@@ -9,6 +9,7 @@ import numpy as np
 from typing import List, Union, Dict, Any, Optional
 from sentence_transformers import SentenceTransformer
 import logging
+from pathlib import Path
 
 # Configuration du logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -42,8 +43,15 @@ class DocumentEmbedder:
                 import torch
                 device = "cuda" if torch.cuda.is_available() else "cpu"
             
-            # Charger le modèle
-            self.model = SentenceTransformer(model_name, device=device, cache_folder=cache_dir)
+            # Vérifier si nous utilisons le modèle local
+            local_model_path = Path("models/all-MiniLM-L6-v2")
+            if model_name == "all-MiniLM-L6-v2" and local_model_path.exists():
+                logger.info(f"Utilisation du modèle local trouvé dans {local_model_path}")
+                self.model = SentenceTransformer(str(local_model_path), device=device)
+            else:
+                # Charger le modèle depuis Hugging Face
+                self.model = SentenceTransformer(model_name, device=device, cache_folder=cache_dir)
+            
             self.embedding_dim = self.model.get_sentence_embedding_dimension()
             logger.info(f"Modèle chargé avec succès. Dimension des embeddings: {self.embedding_dim}")
             
